@@ -7,6 +7,11 @@
 Ce projet explore l’utilisation de méthodes d’embeddings ou de LLMs afin d’améliorer la performance de modèles de classification de texte. Notre objectif est de choisir une représentation adaptée des mots. 
 Nous disposons pour cela de bases de données **Open source** sur ensemble de données pour la classification binaire des sentiments qui contient beaucoup plus de données que les ensembles de données de référence précédents. Lequel contient plus de 25 000 critiques de films très polaires pour l'entraînement et 25 000 pour le test. Le but principale de ce traaville est d'améliorer la précision de la classification des sentiments à l'aide de modèles de pointe (intégration ou LLM).
 
+## Revue de litterature
+
+paper: https://ai.stanford.edu/~amaas/papers/wvSent_acl2011.pdf
+
+
 ## Objectifs
 
 1. Collecter des données sur les films
