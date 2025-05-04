@@ -1,99 +1,75 @@
-import os
-import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer
-import re
-from gensim.models import Word2Vec
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_extraction.text import TfidfVectorizer
-import random
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-# save numpy array as csv file
-from numpy import savetxt
-# define data
-# save to csv file
-import json
-import contractions
-import spacy
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import SVC
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, roc_curve, auc
-import spacy
-from collections import Counter, defaultdict
-import seaborn as sns
-from wordcloud import WordCloud
-import tarfile, requests, io
-
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import SVC
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-import spacy
-from collections import Counter, defaultdict
-from xgboost import XGBClassifier
-
-
+# Importations de la bibliothèque standard
 
 import os
-import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer
+import sys
 import re
-from gensim.models import Word2Vec
-from sklearn.linear_model import LogisticRegression,LogisticRegressionCV
-from sklearn.feature_extraction.text import TfidfVectorizer
-import random
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-# save numpy array as csv file
-from numpy import savetxt
-# define data
-# save to csv file
-import json
-import contractions
-import spacy
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import SVC
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-import spacy
-from collections import Counter, defaultdict
-from xgboost import XGBClassifier
-
-import tarfile
-import requests
 import io
+import json
+import random
+import tarfile
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import seaborn as sns
+from collections import Counter, defaultdict
+
+from numpy import savetxt
+import requests
+import contractions
+import spacy
+
+from gensim.models import Word2Vec
+from wordcloud import WordCloud
+from xgboost import XGBClassifier
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.svm import SVC
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics import (
+    precision_score,
+    recall_score,
+    f1_score,
+    accuracy_score,
+    roc_curve,
+    auc
+)
+from sklearn.exceptions import ConvergenceWarning
+from transformers import BertTokenizer, BertForSequenceClassification
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+nlp = spacy.load("en_core_web_sm")  #modèle anglais, si installé
 
 
 
+# Configuration pour limiter les threads et améliorer les performances
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
+# Gestionnaire de contexte pour supprimer les avertissements
+@contextmanager
+def suppress_warnings():
+    """
+    Supprime divers avertissements pendant l'exécution pour réduire le bruit dans la sortie.
+    """
+    warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=ConvergenceWarning)
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    warnings.filterwarnings("ignore", category=ResourceWarning)
+    try:
+        yield
+    finally:
+        warnings.resetwarnings()
 
 
+#--------------------------
+# nettoyage et explorations des textes
+#----------------------------------
 
-
-
-def input_docs(folder):
-    documents = []
-    html_tag_pattern = re.compile(r'<.*?>')  # pattern clair pour retirer toutes les balises HTML
-    
-    for file_name in os.listdir(folder):
-        file_path = os.path.join(folder, file_name)
-        with open(file_path, 'r', encoding='utf-8') as file:
-            text = file.read().lower()
-            # Supprimer explicitement toutes les balises HTML
-            text = re.sub(html_tag_pattern, ' ', text)
-            
-            # Nettoyage supplémentaire : retirer caractères non-alphabétiques et espaces superflus
-            words = [word.strip() for word in re.split(r"[^a-z]+", text) if word.strip()]
-            cleaned_text = ' '.join(words)
-            
-            documents.append(cleaned_text)
-    return documents
-
-# si je garde ceci, je dois effacer inputs_docs
-import re
 
 def clean_texts(text_list):
     html_tag_pattern = re.compile(r'<.*?>')
@@ -109,31 +85,6 @@ def clean_texts(text_list):
     return cleaned_documents
 
 
-
-def freqjjj(docs):
-    strings={}
-    i=1
-    for doc in docs:
-        words=doc.split()
-        for word in words:
-            if word not in strings:
-                strings[word]=[i]
-            else:
-                if strings[word][-1]!=i:
-                    strings[word].append(i)
-        i+=1
-    words={}
-    for key in strings.keys():
-        j=len(strings[key])
-        if j < 2100 and j >20:
-            words[key]=j
-    with open('dict.json', 'w') as f:
-        f.write(json.dumps(words))
-    return words
-
-
-import json
-from collections import defaultdict
 
 def freq(docs, min_df=20, max_df=2100):
     word_doc_count = defaultdict(set)
@@ -160,8 +111,6 @@ def freq(docs, min_df=20, max_df=2100):
 
 
 
-
-# je veux un motif qui recherche "n" suivi d'un espace suivi d'un "t" suivi d'un espace.
 
 def process_doc(doc):
     """
@@ -217,7 +166,7 @@ def word_vectors(neg,pos):
     return vectors
 
 
-nlp = spacy.load("en_core_web_sm")  #modèle anglais, si installé
+
          
 def pos_tag_docs(docs, batch_size=50, n_process=1):
     """
@@ -244,6 +193,7 @@ def pos_tag_docs(docs, batch_size=50, n_process=1):
             
     return pos_counts, tokens_by_pos
 
+    
 def plot_top_tokens_for_tag(tokens_by_pos, tag, top_n=10):
     counter = tokens_by_pos.get(tag, None)
     if not counter:
@@ -262,31 +212,47 @@ def plot_top_tokens_for_tag(tokens_by_pos, tag, top_n=10):
     plt.show()
 
 
+
+# -------------------
+# Classes et fonctions de prétraitement
+# -------------------
 class Lemmatizer(BaseEstimator, TransformerMixin):
-    def __init__(self, batch_size=50, n_process=1, excluded_tags=None):
+    def __init__(self, batch_size=200, n_process=1, excluded_tags=None, model="en_core_web_sm"):
         self.batch_size = batch_size
         self.n_process = n_process
-        # Définir les tags à exclure (par défaut, aucun n'est exclu)
-        if excluded_tags is None:
-            self.excluded_tags = set()
-        else:
-            self.excluded_tags = set(excluded_tags)
+        self.excluded_tags = excluded_tags
+        self.model = model
+        self.nlp = spacy.load(self.model, disable=["ner", "textcat"])
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        # X est une liste de documents, chaque document étant une liste de tokens
-        docs_text = [" ".join(doc) for doc in X]
-        lemmatized_docs = [None] * len(docs_text)
-        for i, doc in enumerate(nlp.pipe(docs_text, batch_size=self.batch_size, n_process=self.n_process)):
-            # On filtre les tokens dont le pos tag est dans excluded_tags
-            lemmatized = " ".join([token.lemma_ for token in doc 
-                                   if token.pos_ not in self.excluded_tags])
-            lemmatized_docs[i] = lemmatized
+        if not isinstance(X, (list, tuple)):
+            raise ValueError("Input X must be a list or tuple of texts")
+        if len(X) == 0:
+            return []
+        if isinstance(X[0], (list, tuple)):
+            docs_text = [" ".join(doc) for doc in X]
+        else:
+            docs_text = X
+        docs_text = [str(doc) for doc in docs_text]
+        excluded_tags = set(self.excluded_tags) if self.excluded_tags else set()
+        lemmatized_docs = []
+        for doc in self.nlp.pipe(
+            docs_text,
+             batch_size=self.batch_size,
+            n_process=self.n_process,
+            disable=["ner", "textcat"]
+        ):
+            lemmatized = " ".join(
+                token.lemma_ for token in doc if token.pos_ not in excluded_tags
+            )
+            lemmatized_docs.append(lemmatized)
         return lemmatized_docs
-    
-          
+
+
+
 def lemmatizProcess(docs, excluded_tags=None):
     
     excluded_set = set(excluded_tags) if excluded_tags else set()
@@ -304,8 +270,156 @@ def lemmatizProcess(docs, excluded_tags=None):
         lemmatized_docs[i] = lemmatized
     
     return lemmatized_docs
+
+
+
+# -------------------
+# Classes de vectorisation
+# -------------------
+
+class Word2VecVectorizer(BaseEstimator, TransformerMixin):
+    def __init__(self, vector_size=200, window=5, min_count=1, workers=1):
+        """
+        Initialize Word2Vec vectorizer.
+
+        Parameters:
+        - vector_size: Dimensionality of word vectors.
+        - window: Maximum distance between current and predicted word.
+        - min_count: Ignore words with frequency lower than this.
+        - workers: Number of worker threads for training.
+        """
+        self.vector_size = vector_size
+        self.window = window
+        self.min_count = min_count
+        self.workers = workers
+        self.model = None
+
+    def fit(self, X, y=None):
+        """
+        Train Word2Vec model on input texts.
+
+        Parameters:
+        - X: List of strings (lemmatized texts).
+        """
+        # Tokenize each document (split by whitespace since texts are lemmatized)
+        tokenized_docs = [doc.split() for doc in X]
+        # Train Word2Vec model
+        self.model = Word2Vec(
+            sentences=tokenized_docs,
+            vector_size=self.vector_size,
+            window=self.window,
+            min_count=self.min_count,
+            workers=self.workers,
+            seed=12345  # For reproducibility
+        )
+        return self
+
+    def transform(self, X):
+        """
+        Transform texts into document embeddings by averaging word vectors.
+
+        Parameters:
+        - X: List of strings (lemmatized texts).
+
+        Returns:
+        - Array of shape (n_samples, vector_size) containing document embeddings.
+        """
+        tokenized_docs = [doc.split() for doc in X]
+        embeddings = []
+        for doc in tokenized_docs:
+            # Get vectors for words in the document that are in the model's vocabulary
+            word_vectors = [self.model.wv[word] for word in doc if word in self.model.wv]
+            if word_vectors:
+                # Average the word vectors
+                doc_embedding = np.mean(word_vectors, axis=0)
+            else:
+                # If no words in vocab, return zero vector
+                doc_embedding = np.zeros(self.vector_size)
+            embeddings.append(doc_embedding)
+        return np.array(embeddings)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -------------------
+# Étiquetage POS et visualisation
+# -------------------
+
+def pos_tag_docs(docs, batch_size=50, n_process=1):
+    """
+    Effectue l'étiquetage POS sur les documents et calcule les statistiques.
+
+    Paramètres :
+    - docs : Liste de documents, chacun étant une liste de tokens.
+    - batch_size : Nombre de documents à traiter par lot.
+    - n_process : Nombre de processus pour le pipeline spaCy.
+
+    Retourne :
+    - pos_counts : Compteur des fréquences des tags POS (par exemple, ADJ, NOUN).
+    - tokens_by_pos : Dictionnaire de compteurs associant les tags POS aux fréquences des tokens.
+    """
+    pos_counts = Counter()
+    tokens_by_pos = defaultdict(Counter)
     
-   
+    # Reconstitue les textes à partir des listes de tokens
+    texts = [" ".join(token_list) for token_list in docs]
+    
+    # Charge le modèle spaCy si non chargé
+    nlp = spacy.load("en_core_web_sm", disable=["ner", "textcat"])
+    
+    # Traite les documents par lots
+    for doc in nlp.pipe(texts, batch_size=batch_size, n_process=n_process):
+        for token in doc:
+            pos_tag = token.pos_
+            surface_form = token.text
+            pos_counts[pos_tag] += 1
+            tokens_by_pos[pos_tag][surface_form.lower()] += 1
+            
+    return pos_counts, tokens_by_pos
+
+def plot_top_tokens_for_tag(tokens_by_pos, tag, top_n=10):
+    """
+    Trace les N tokens les plus fréquents pour un tag POS donné.
+
+    Paramètres :
+    - tokens_by_pos : Dictionnaire de compteurs issu de pos_tag_docs.
+    - tag : Tag POS à tracer (par exemple, 'ADJ', 'NOUN').
+    - top_n : Nombre de tokens principaux à afficher.
+    """
+    import matplotlib.pyplot as plt
+    
+    counter = tokens_by_pos.get(tag)
+    if not counter:
+        print(f"Aucun token trouvé pour le tag {tag}")
+        return
+    
+    most_common = counter.most_common(top_n)
+    tokens, freqs = zip(*most_common)
+    
+    plt.figure(figsize=(8, 4))
+    plt.barh(tokens, freqs, color='green')
+    plt.gca().invert_yaxis()
+    plt.xlabel("Fréquence")
+    plt.ylabel("Tokens")
+    plt.title(f"Top {top_n} Tokens pour le Tag {tag}")
+    plt.show()
+
+
 def document_vector(doc_tokens, model):
     # On récupère les vecteurs pour les tokens présents dans le vocabulaire du modèle
     vectors = [model.wv[token] for token in doc_tokens if token in model.wv]
@@ -314,24 +428,35 @@ def document_vector(doc_tokens, model):
     else:
         # Retourne un vecteur zéro si aucun mot n'est reconnu
         return np.zeros(model.vector_size)
-    
+# -------------------
+# Fonctions d'évaluation des modèles
+# -------------------
 
-
-
-
-
-def compute_roc(pipelines, X_test, y_test):
+def compute_roc(grid_searches, X, y):
     roc_results = {}
-
-    for name, pipeline in pipelines.items():
-        if name == 'SVM':
-            proba = pipeline.decision_function(X_test)
-        else:
-            proba = pipeline.predict_proba(X_test)[:, 1]  # probabilité classe positive
-        fpr, tpr, _ = roc_curve(y_test, proba)
-        roc_auc = auc(fpr, tpr)
-        roc_results[name] = {'fpr': fpr, 'tpr': tpr, 'roc_auc': roc_auc}
-
+    for name, gs in grid_searches.items():
+        try:
+            # Utiliser le meilleur modèle
+            model = gs.best_estimator_
+            # Prédire les probabilités
+            if hasattr(model, "predict_proba"):
+                y_proba = model.predict_proba(X)[:, 1]
+            elif hasattr(model, "decision_function"):
+                y_proba = model.decision_function(X)
+            else:
+                print(f"Le modèle {name} ne supporte ni predict_proba ni decision_function")
+                continue
+            # Calculer la courbe ROC et l'AUC
+            fpr, tpr, _ = roc_curve(y, y_proba)
+            roc_auc = auc(fpr, tpr)
+            roc_results[name] = {
+                'fpr': fpr,
+                'tpr': tpr,
+                'roc_auc': roc_auc
+            }
+        except Exception as e:
+            print(f"Erreur lors du calcul ROC pour {name}: {str(e)}")
+            continue
     return roc_results
 
 def evaluate_model(name, y_true, y_pred):
@@ -340,3 +465,45 @@ def evaluate_model(name, y_true, y_pred):
     print("Precision:", precision_score(y_true, y_pred))
     print("Recall   :", recall_score(y_true, y_pred))
     print("F1-score :", f1_score(y_true, y_pred))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
